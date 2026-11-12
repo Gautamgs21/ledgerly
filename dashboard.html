@@ -1,0 +1,326 @@
+<!-- ============================================================
+     PAGE: DASHBOARD
+     ============================================================ -->
+<style>
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-item {
+        background: var(--card-bg);
+        border-radius: var(--radius-sm);
+        padding: 14px 10px;
+        text-align: center;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+    }
+    .stat-item .stat-value { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .stat-item .stat-label {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 2px;
+    }
+    .stat-item .stat-value.positive { color: var(--success); }
+    .stat-item .stat-value.negative { color: var(--danger); }
+    .stat-item .stat-value.neutral { color: var(--text-secondary); }
+
+    .member-list { display: flex; flex-direction: column; gap: 8px; }
+    .member-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        background: var(--card-bg);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+    }
+    .member-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .member-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    .member-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-status {
+        font-size: 10px;
+        font-weight: 500;
+        padding: 2px 10px;
+        border-radius: 12px;
+        background: var(--bg);
+        color: var(--text-secondary);
+        flex-shrink: 0;
+    }
+    .member-status.low-credit { background: #FFEDD5; color: #EA580C; animation: blinkAlert 1s infinite alternate; }
+    @keyframes blinkAlert { 0% { opacity: 1; } 100% { opacity: 0.25; } }
+    .member-status.credit { background: #DCFCE7; color: #15803D; }
+    .member-status.debt { background: #FEE2E2; color: #DC2626; }
+    .member-status.settled { background: var(--border); color: var(--text-muted); }
+
+    .category-list { display: flex; flex-direction: column; gap: 6px; }
+    .category-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .category-row .cat-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        color: #fff;
+        flex-shrink: 0;
+    }
+    .category-row .cat-name { flex: 1; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .category-row .cat-amount { font-weight: 600; font-size: 14px; flex-shrink: 0; }
+    .category-row .cat-bar { flex: 1; height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; min-width: 40px; }
+    .category-row .cat-bar .fill { height: 100%; border-radius: 4px; background: var(--primary); transition: width 0.6s ease; }
+
+    .chart-bars { display: flex; align-items: flex-end; justify-content: space-between; height: 130px; padding-top: 20px; gap: 6px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+    .bar-val { font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+    .bar-fill-wrap { width: 100%; max-width: 28px; height: 100%; display: flex; align-items: flex-end; background: var(--bg); border-radius: 6px; overflow: hidden; }
+    .bar-fill { width: 100%; background: var(--primary); border-radius: 6px; transition: height 0.4s ease; }
+    .bar-lbl { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+
+    @media (max-width: 480px) {
+        .stats-grid { gap: 8px; }
+        .stat-item .stat-value { font-size: 17px; }
+        .member-name { font-size: 14px; }
+    }
+</style>
+
+<div class="stats-grid" id="statsGrid">
+    <div class="stat-item">
+        <div class="stat-value negative" id="statTotalDebt">₹0</div>
+        <div class="stat-label">Total Debt</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value positive" id="statTotalCredit">₹0</div>
+        <div class="stat-label">Total Credit</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value neutral" id="statNet">₹0</div>
+        <div class="stat-label">Net Balance</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title flex-between">
+        <span><i class="fas fa-users"></i> Balances</span>
+        <button class="btn btn-outline btn-sm" id="copyBalancesBtn" style="width:auto;padding:4px 10px;font-size:12px;">
+            <i class="fas fa-copy"></i> Copy
+        </button>
+    </div>
+    <div id="memberListContainer">
+        <div class="empty-state">
+            <i class="fas fa-user-plus"></i>
+            <p>No members yet. Add some in Settings.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title"><i class="fas fa-chart-pie"></i> Spending by Category</div>
+    <div id="categoryContainer">
+        <div class="empty-state">
+            <i class="fas fa-receipt"></i>
+            <p>No transactions yet.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title flex-between">
+        <span><i class="fas fa-chart-column"></i> Spending Analytics</span>
+        <select class="form-control" id="monthlyMemberSelect" style="width:auto;padding:4px 8px;font-size:12px;">
+            <option value="ALL">ALL</option>
+        </select>
+    </div>
+    <div id="monthlyChartContainer" style="margin-top:8px;">
+        <div class="empty-state" style="padding:16px 0;">
+            <p style="font-size:13px;">Loading spending data...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const $ = (sel) => root.querySelector(sel);
+    const { escapeHtml, getColorForName } = App.util;
+
+    const CATEGORY_ICONS = {
+        'Tea': 'fa-mug-saucer',
+        'Snacks': 'fa-utensils',
+        'Travel': 'fa-bus',
+        'Food': 'fa-utensils',
+        'Others': 'fa-ellipsis'
+    };
+    const CATEGORY_COLORS = {
+        'Tea': '#8B5CF6',
+        'Snacks': '#F59E0B',
+        'Travel': '#3B82F6',
+        'Food': '#EC4899',
+        'Others': '#6B7280'
+    };
+
+    const memberListContainer = $('#memberListContainer');
+    const categoryContainer = $('#categoryContainer');
+    const statTotalDebt = $('#statTotalDebt');
+    const statTotalCredit = $('#statTotalCredit');
+    const statNet = $('#statNet');
+
+    function renderDashboard(data) {
+        if (!data) return;
+        const totalDebt = data.summary.totalDebit || 0;
+        const totalCredit = data.summary.totalCredit || 0;
+        const net = data.summary.netBalance || 0;
+
+        statTotalDebt.textContent = `₹${totalDebt.toFixed(0)}`;
+        statTotalCredit.textContent = `₹${totalCredit.toFixed(0)}`;
+        statNet.textContent = `₹${net.toFixed(0)}`;
+        statNet.className = 'stat-value ' + (net > 0 ? 'positive' : net < 0 ? 'negative' : 'neutral');
+
+        if (data.members.length === 0) {
+            memberListContainer.innerHTML = `<div class="empty-state"><i class="fas fa-user-plus"></i><p>No members yet. Add some in Settings.</p></div>`;
+        } else {
+            let html = '<div class="member-list">';
+            data.members.forEach(m => {
+                const bal = m.balance || 0;
+                const isLowCredit = (bal > 0 && bal <= 50);
+
+                // Status label and blinking class if credit is 50 or less
+                const statusClass = bal > 0 ? (isLowCredit ? 'low-credit' : 'credit') : (bal < 0 ? 'debt' : 'settled');
+                const statusLabel = bal > 0 ? 'Credit' : bal < 0 ? 'Debt' : 'Settled';
+                // Balance color (orange if <= 50)
+                const balanceClass = bal > 0 ? (isLowCredit ? 'warning' : 'positive') : (bal < 0 ? 'negative' : 'neutral');
+
+                const sign = bal > 0 ? '+' : '';
+                const initials = m.name.charAt(0).toUpperCase();
+                html += `
+                    <div class="member-item">
+                        <div class="member-info">
+                            <div class="member-avatar" style="background:${getColorForName(m.name)}">${initials}</div>
+                            <span class="member-name">${escapeHtml(m.name)}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="member-balance ${balanceClass}">
+                                <span class="currency">₹</span>${sign}${Math.abs(bal).toFixed(0)}
+                            </span>
+                            <span class="member-status ${statusClass}">${statusLabel}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            memberListContainer.innerHTML = html;
+        }
+
+        if (data.categories.length === 0) {
+            categoryContainer.innerHTML = `<div class="empty-state"><i class="fas fa-receipt"></i><p>No transactions yet.</p></div>`;
+        } else {
+            const total = data.categories.reduce((s, c) => s + c.amount, 0);
+            let html = '<div class="category-list">';
+            data.categories.forEach(c => {
+                const pct = total > 0 ? (c.amount / total * 100) : 0;
+                const icon = CATEGORY_ICONS[c.category] || 'fa-tag';
+                const color = CATEGORY_COLORS[c.category] || '#6B7280';
+                html += `
+                    <div class="category-row">
+                        <div class="cat-icon" style="background:${color}"><i class="fas ${icon}"></i></div>
+                        <span class="cat-name">${escapeHtml(c.category)}</span>
+                        <span class="cat-amount">₹${c.amount.toFixed(0)}</span>
+                        <div class="cat-bar"><div class="fill" style="width:${pct}%;background:${color}"></div></div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            categoryContainer.innerHTML = html;
+        }
+        populateMonthlyMemberDropdown();
+        renderMonthlyChart();
+    }
+
+    function populateMonthlyMemberDropdown() {
+        const select = $('#monthlyMemberSelect');
+        const currentVal = select.value;
+        let html = '<option value="ALL">ALL</option>';
+        App.state.members.forEach(m => {
+            html += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`;
+        });
+        select.innerHTML = html;
+        if (currentVal && (currentVal === 'ALL' || App.state.members.includes(currentVal))) {
+            select.value = currentVal;
+        }
+    }
+
+    function renderMonthlyChart() {
+        const container = $('#monthlyChartContainer');
+        const select = $('#monthlyMemberSelect');
+        const data = App.state.dashboardData;
+        if (!data || !data.monthly) return;
+
+        const selectedMember = select.value || 'ALL';
+        const monthsList = data.monthly.monthsList;
+        const memberData = data.monthly.data[selectedMember] || {};
+
+        let maxVal = 0;
+        monthsList.forEach(m => {
+            const val = memberData[m.key] || 0;
+            if (val > maxVal) maxVal = val;
+        });
+
+        let html = '<div class="chart-bars">';
+        monthsList.forEach(m => {
+            const val = memberData[m.key] || 0;
+            const pct = maxVal > 0 ? (val / maxVal * 100) : 0;
+            html += `
+                <div class="bar-col">
+                    <span class="bar-val">₹${val.toFixed(0)}</span>
+                    <div class="bar-fill-wrap">
+                        <div class="bar-fill" style="height:${pct}%;"></div>
+                    </div>
+                    <span class="bar-lbl">${m.label}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // ----- events -----
+    $('#monthlyMemberSelect').addEventListener('change', renderMonthlyChart);
+
+    $('#copyBalancesBtn').addEventListener('click', () => {
+        const data = App.state.dashboardData;
+        if (!data || !data.members || data.members.length === 0) {
+            App.toast('No balances to copy.', 'error');
+            return;
+        }
+        let text = "☕ *Chaya Patt Balances*\n";
+        data.members.forEach(m => {
+            const bal = m.balance || 0;
+            const sign = bal > 0 ? '+' : '';
+            const status = bal > 0 ? '(Credit)' : bal < 0 ? '(Debt)' : '(Settled)';
+            text += `${m.name}: ₹${sign}${bal.toFixed(0)} ${status}\n`;
+        });
+        navigator.clipboard.writeText(text.trim()).then(() => {
+            App.toast('Balances copied to clipboard!', 'success');
+        }).catch(() => {
+            App.toast('Failed to copy.', 'error');
+        });
+    });
+
+    App.on('dashboard', renderDashboard);
+
+    // ----- page lifecycle -----
+    return {
+        // Every time the Home tab is opened, fetch fresh numbers
+        onShow() { return App.loadDashboard().catch(() => {}); }
+    };
+</script>
