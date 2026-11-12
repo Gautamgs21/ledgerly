@@ -1,0 +1,540 @@
+<!-- ============================================================
+     PAGE: NEW ENTRY  (Bulk + Single transaction)
+     ============================================================ -->
+<style>
+    /* Sub-tabs */
+    .sub-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 16px;
+        background: var(--bg);
+        padding: 4px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+    }
+    .sub-tabs .sub-tab {
+        flex: 1;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+        text-align: center;
+    }
+    .sub-tabs .sub-tab.active { background: var(--card-bg); color: var(--primary); box-shadow: var(--shadow); }
+    .sub-tabs .sub-tab:active { transform: scale(0.96); }
+    .sub-view { display: none; animation: fadeIn 0.25s ease; }
+    .sub-view.active { display: block; }
+
+    /* Bulk entry table */
+    .bulk-table-wrap {
+        overflow-x: auto;
+        margin-top: 8px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        -webkit-overflow-scrolling: touch;
+    }
+    .bulk-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .bulk-table th {
+        background: var(--bg);
+        padding: 8px 6px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.3px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+    .bulk-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .bulk-table tr:last-child td { border-bottom: none; }
+    .bulk-table .member-name-cell { font-weight: 500; font-size: 13px; white-space: nowrap; }
+    .bulk-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
+    .bulk-table select, .bulk-table input[type="number"], .bulk-table input[type="text"] {
+        width: 100%;
+        padding: 6px 4px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 13px;
+        background: var(--card-bg);
+        color: var(--text-primary);
+        min-width: 50px;
+        font-family: inherit;
+    }
+    .bulk-table select:focus, .bulk-table input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+    }
+    .bulk-table .amount-input { width: 70px; min-width: 60px; }
+    .bulk-table .cat-select { min-width: 70px; }
+    .bulk-table .notes-input { min-width: 80px; }
+
+    /* Single entry */
+    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .type-toggle .toggle-btn {
+        padding: 10px;
+        border: 2px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--card-bg);
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+        color: var(--text-secondary);
+        font-family: inherit;
+    }
+    .type-toggle .toggle-btn i { margin-right: 6px; }
+    .type-toggle .toggle-btn.active-debit { border-color: var(--danger); background: #FEF2F2; color: var(--danger); }
+    .type-toggle .toggle-btn.active-credit { border-color: var(--success); background: #F0FDF4; color: var(--success); }
+    .type-toggle .toggle-btn:active { transform: scale(0.96); }
+    .category-other-input { margin-top: 8px; display: none; }
+    .category-other-input.show { display: block; animation: fadeIn 0.2s ease; }
+
+    @media (max-width: 480px) {
+        .bulk-table { font-size: 12px; }
+        .bulk-table .amount-input { width: 60px; min-width: 50px; }
+        .bulk-table td, .bulk-table th { padding: 4px 3px; }
+    }
+</style>
+
+<div class="card">
+    <div class="card-title"><i class="fas fa-pen"></i> Register Transaction</div>
+
+    <!-- Sub-Tabs -->
+    <div class="sub-tabs">
+        <button class="sub-tab active" data-view="bulk"><i class="fas fa-table"></i> Bulk Entry</button>
+        <button class="sub-tab" data-view="single"><i class="fas fa-user"></i> Single Entry</button>
+    </div>
+
+    <!-- ===== BULK ENTRY VIEW ===== -->
+    <div id="bulk-entry" class="sub-view active">
+        <div class="form-group">
+            <label>Date</label>
+            <input type="date" class="form-control" id="bulkDate">
+        </div>
+
+        <!-- Live Net Spending Banner -->
+        <div id="bulkTotalSummary" style="background: var(--card-bg); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 12px; font-weight: 600; font-size: 14px; text-align: center; box-shadow: var(--shadow);">
+            Your Net Spending is <span id="bulkNetTotal" style="color: var(--primary); font-weight: 700; font-size: 16px;">₹0</span>
+        </div>
+
+        <div class="bulk-table-wrap">
+            <table class="bulk-table">
+                <thead>
+                    <tr>
+                        <th style="width:36px;"><input type="checkbox" id="selectAllBulk"></th>
+                        <th style="min-width:80px;">Member</th>
+                        <th style="width:90px;">Type</th>
+                        <th style="width:90px;">Amount</th>
+                        <th style="min-width:110px;">Category</th>
+                    </tr>
+                </thead>
+                <tbody id="bulkTableBody">
+                    <tr><td colspan="5" class="text-center" style="padding:20px;color:var(--text-muted);">Loading members...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Common Notes Field for All Entries -->
+        <div class="form-group mt-12">
+            <label>Notes <span style="font-weight:400;color:var(--text-muted);">(optional - applies to all selected)</span></label>
+            <input type="text" class="form-control" id="bulkCommonNotes" placeholder="Any additional info for all entries..." maxlength="100">
+        </div>
+
+        <button class="btn btn-success mt-8" id="submitBulkBtn">
+            <i class="fas fa-check-circle"></i> Add Selected Transactions
+        </button>
+    </div>
+
+    <!-- ===== SINGLE ENTRY VIEW ===== -->
+    <div id="single-entry" class="sub-view">
+        <form id="transactionForm" autocomplete="off">
+            <div class="form-group">
+                <label>Person <span class="required">*</span></label>
+                <select class="form-control" id="txPerson" required>
+                    <option value="">Select person...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Type <span class="required">*</span></label>
+                <div class="type-toggle">
+                    <button type="button" class="toggle-btn active-debit" id="typeDebitBtn" data-value="Debit">
+                        <i class="fas fa-arrow-down"></i> Debit
+                    </button>
+                    <button type="button" class="toggle-btn" id="typeCreditBtn" data-value="Credit">
+                        <i class="fas fa-arrow-up"></i> Credit
+                    </button>
+                </div>
+                <input type="hidden" id="txType" value="Debit">
+            </div>
+
+            <div class="form-group" id="categoryGroup">
+                <label>Category <span class="required">*</span></label>
+                <select class="form-control" id="txCategory">
+                    <option value="Tea">☕ Tea</option>
+                    <option value="Snacks">🍿 Snacks</option>
+                    <option value="Travel">🚌 Travel</option>
+                    <option value="Food">🍽️ Food</option>
+                    <option value="Others">📌 Others</option>
+                </select>
+                <div class="category-other-input" id="otherCategoryWrapper">
+                    <input type="text" class="form-control" id="txOtherCategory" placeholder="Enter custom category..." maxlength="30">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Amount (₹) <span class="required">*</span></label>
+                <input type="number" class="form-control" id="txAmount" placeholder="0.00" min="0.01" step="0.01" required>
+            </div>
+
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" class="form-control" id="txDate">
+            </div>
+
+            <div class="form-group">
+                <label>Notes <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+                <input type="text" class="form-control" id="txNotes" placeholder="Any additional info..." maxlength="100">
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitTxBtn">
+                <i class="fas fa-plus-circle"></i> Add Transaction
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const $ = (sel) => root.querySelector(sel);
+    const $$ = (sel) => root.querySelectorAll(sel);
+    const { escapeHtml, getTodayStr } = App.util;
+
+    // Sub tabs
+    const subTabBtns = $$('.sub-tab');
+    const bulkView = $('#bulk-entry');
+    const singleView = $('#single-entry');
+
+    // Bulk
+    const bulkDate = $('#bulkDate');
+    const bulkTableBody = $('#bulkTableBody');
+    const selectAllBulk = $('#selectAllBulk');
+    const submitBulkBtn = $('#submitBulkBtn');
+
+    // Single
+    const txForm = $('#transactionForm');
+    const txPerson = $('#txPerson');
+    const txType = $('#txType');
+    const typeDebitBtn = $('#typeDebitBtn');
+    const typeCreditBtn = $('#typeCreditBtn');
+    const txCategory = $('#txCategory');
+    const txOtherCategory = $('#txOtherCategory');
+    const otherCategoryWrapper = $('#otherCategoryWrapper');
+    const txAmount = $('#txAmount');
+    const txDate = $('#txDate');
+    const txNotes = $('#txNotes');
+    const submitBtn = $('#submitTxBtn');
+
+    const BULK_SUBMIT_HTML = '<i class="fas fa-check-circle"></i> Add Selected Transactions';
+
+    // ============================================================
+    //  BULK ENTRY
+    // ============================================================
+    function updateBulkTotal() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        $$('#bulkTableBody tr').forEach(row => {
+            const checkbox = row.querySelector('.bulk-checkbox');
+            if (!checkbox || !checkbox.checked) return;
+
+            const typeEl = row.querySelector('.bulk-type');
+            const amountEl = row.querySelector('.bulk-amount');
+            const type = typeEl ? typeEl.value : 'Debit';
+            const amount = parseFloat(amountEl ? amountEl.value : 0) || 0;
+
+            if (type === 'Debit') totalDebit += amount;
+            else if (type === 'Credit') totalCredit += amount;
+        });
+
+        const netSpending = totalDebit - totalCredit;
+        const bulkNetTotal = $('#bulkNetTotal');
+        const sign = netSpending < 0 ? '-' : '';
+        bulkNetTotal.textContent = `${sign}₹${Math.abs(netSpending).toFixed(0)}`;
+        bulkNetTotal.style.color = netSpending > 0 ? 'var(--danger)' : netSpending < 0 ? 'var(--success)' : 'var(--primary)';
+    }
+
+    function updateSelectAllState() {
+        const checkboxes = $$('.bulk-checkbox');
+        const checked = $$('.bulk-checkbox:checked');
+        if (checkboxes.length === 0) return;
+        selectAllBulk.checked = (checked.length === checkboxes.length);
+        selectAllBulk.indeterminate = (checked.length > 0 && checked.length < checkboxes.length);
+    }
+
+    function renderBulkTable() {
+        const members = App.state.members;
+        if (!members || members.length === 0) {
+            bulkTableBody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:20px;color:var(--text-muted);">No members. Add them in Settings.</td></tr>`;
+            updateBulkTotal();
+            return;
+        }
+        let html = '';
+        members.forEach(name => {
+            html += `
+                <tr>
+                    <td style="text-align:center;"><input type="checkbox" class="bulk-checkbox" checked></td>
+                    <td class="member-name-cell">${escapeHtml(name)}</td>
+                    <td>
+                        <select class="bulk-type">
+                            <option value="Debit">Debit</option>
+                            <option value="Credit">Credit</option>
+                        </select>
+                    </td>
+                    <td><input type="number" class="form-control amount-input bulk-amount" placeholder="0" min="0.01" step="0.01"></td>
+                    <td>
+                        <select class="form-control cat-select bulk-cat">
+                            <option value="Tea">☕ Tea</option>
+                            <option value="Snacks">🍿 Snacks</option>
+                            <option value="Travel">🚌 Travel</option>
+                            <option value="Food">🍽️ Food</option>
+                            <option value="Top Up">💰 Top Up</option>
+                            <option value="Others">📌 Others</option>
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+        bulkTableBody.innerHTML = html;
+
+        updateSelectAllState();
+
+        selectAllBulk.onchange = function () {
+            const checked = this.checked;
+            $$('.bulk-checkbox').forEach(cb => cb.checked = checked);
+            updateBulkTotal();
+        };
+        $$('.bulk-checkbox').forEach(cb => {
+            cb.onchange = function () {
+                updateSelectAllState();
+                updateBulkTotal();
+            };
+        });
+        $$('.bulk-amount, .bulk-type').forEach(el => {
+            el.addEventListener('input', updateBulkTotal);
+            el.addEventListener('change', updateBulkTotal);
+        });
+
+        updateBulkTotal();
+    }
+
+    async function submitBulk() {
+        const commonNotesInput = $('#bulkCommonNotes');
+        const commonNotes = commonNotesInput ? commonNotesInput.value.trim() : '';
+        const transactions = [];
+        let hasError = false;
+
+        $$('#bulkTableBody tr').forEach(row => {
+            const checkbox = row.querySelector('.bulk-checkbox');
+            if (!checkbox || !checkbox.checked) return;
+
+            const nameEl = row.querySelector('.member-name-cell');
+            const typeEl = row.querySelector('.bulk-type');
+            const amountEl = row.querySelector('.bulk-amount');
+            const catEl = row.querySelector('.bulk-cat');
+
+            const person = nameEl ? nameEl.textContent.trim() : '';
+            const type = typeEl ? typeEl.value : 'Debit';
+            const amount = parseFloat(amountEl ? amountEl.value : 0);
+            const category = catEl ? catEl.value : 'Tea';
+
+            if (!person || isNaN(amount) || amount <= 0) {
+                hasError = true;
+                if (amountEl) amountEl.style.borderColor = 'var(--danger)';
+                return;
+            }
+            if (amountEl) amountEl.style.borderColor = '';
+
+            transactions.push({
+                person: person,
+                type: type,
+                amount: amount,
+                category: category,
+                notes: commonNotes,
+                date: bulkDate.value || getTodayStr()
+            });
+        });
+
+        if (transactions.length === 0) {
+            App.toast('Select at least one member with a valid amount.', 'error');
+            return;
+        }
+        if (hasError) {
+            App.toast('Some rows have invalid amounts. Please fix them.', 'error');
+            return;
+        }
+
+        const user = App.state.user;
+        const payload = {
+            transactions: transactions,
+            registrar: user ? `${user.name} (${user.userId})` : 'System'
+        };
+
+        submitBulkBtn.disabled = true;
+        submitBulkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        try {
+            const result = await App.api('addBulkTransactions', payload);
+            if (result.success) {
+                App.toast(result.message, 'success');
+                $$('.bulk-amount').forEach(el => el.value = '');
+                if (commonNotesInput) commonNotesInput.value = '';
+                updateBulkTotal();
+                App.loadDashboard().catch(() => {});
+                App.emit('tx-changed');
+            } else {
+                App.toast(result.message || 'Failed to add transactions.', 'error');
+            }
+        } catch (e) {
+            // api.js already showed the error toast
+        } finally {
+            submitBulkBtn.disabled = false;
+            submitBulkBtn.innerHTML = BULK_SUBMIT_HTML;
+        }
+    }
+
+    // ============================================================
+    //  SINGLE ENTRY
+    // ============================================================
+    function populatePersonDropdown() {
+        const currentVal = txPerson.value;
+        let html = '<option value="">Select person...</option>';
+        App.state.members.forEach(m => {
+            html += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`;
+        });
+        txPerson.innerHTML = html;
+        if (currentVal && App.state.members.includes(currentVal)) txPerson.value = currentVal;
+    }
+
+    function setType(type) {
+        txType.value = type;
+        const isDebit = type === 'Debit';
+        typeDebitBtn.className = `toggle-btn ${isDebit ? 'active-debit' : ''}`;
+        typeCreditBtn.className = `toggle-btn ${!isDebit ? 'active-credit' : ''}`;
+        $('#categoryGroup').style.display = isDebit ? 'block' : 'none';
+        submitBtn.innerHTML = isDebit ?
+            '<i class="fas fa-arrow-down"></i> Add Debit' :
+            '<i class="fas fa-arrow-up"></i> Add Top-Up';
+    }
+
+    function handleCategoryChange() {
+        if (txCategory.value === 'Others') {
+            otherCategoryWrapper.classList.add('show');
+            txOtherCategory.setAttribute('required', 'required');
+        } else {
+            otherCategoryWrapper.classList.remove('show');
+            txOtherCategory.removeAttribute('required');
+            txOtherCategory.value = '';
+        }
+    }
+
+    async function submitSingleTransaction() {
+        const user = App.state.user;
+        const data = {
+            person: txPerson.value,
+            type: txType.value,
+            amount: parseFloat(txAmount.value),
+            notes: txNotes.value.trim() || '',
+            date: txDate.value || getTodayStr(),
+            registrar: user ? `${user.name} (${user.userId})` : 'System'
+        };
+
+        if (!data.person) { App.toast('Please select a person.', 'error'); return; }
+        if (data.type === 'Debit') {
+            let cat = txCategory.value;
+            if (cat === 'Others') {
+                const custom = txOtherCategory.value.trim();
+                if (!custom) { App.toast('Please enter a custom category name.', 'error'); return; }
+                cat = custom;
+            }
+            data.category = cat;
+        } else {
+            data.category = 'Top Up';
+        }
+        if (!data.amount || data.amount <= 0) { App.toast('Please enter a valid amount.', 'error'); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+        try {
+            const result = await App.api('addTransaction', data);
+            if (result.success) {
+                App.toast(result.message, 'success');
+                txForm.reset();
+                txDate.value = getTodayStr();
+                setType('Debit');
+                handleCategoryChange();
+                App.emit('tx-changed');
+                setTimeout(() => App.go('dashboard'), 400);
+            } else {
+                App.toast(result.message || 'Failed to add transaction.', 'error');
+            }
+        } catch (e) {
+            // api.js already showed the error toast
+        } finally {
+            submitBtn.disabled = false;
+            setType(txType.value);
+        }
+    }
+
+    // ============================================================
+    //  EVENTS
+    // ============================================================
+    subTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            subTabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const view = btn.dataset.view;
+            bulkView.classList.toggle('active', view === 'bulk');
+            singleView.classList.toggle('active', view === 'single');
+            if (view === 'bulk') renderBulkTable();
+        });
+    });
+
+    typeDebitBtn.addEventListener('click', () => setType('Debit'));
+    typeCreditBtn.addEventListener('click', () => setType('Credit'));
+    txCategory.addEventListener('change', handleCategoryChange);
+    txForm.addEventListener('submit', (e) => { e.preventDefault(); submitSingleTransaction(); });
+    submitBulkBtn.addEventListener('click', submitBulk);
+
+    // Members changed (rename / add / delete / refresh)
+    App.on('members', () => {
+        populatePersonDropdown();
+        renderBulkTable();
+    });
+
+    // ============================================================
+    //  INIT + PAGE LIFECYCLE
+    // ============================================================
+    txDate.value = getTodayStr();
+    bulkDate.value = getTodayStr();
+    setType('Debit');
+    handleCategoryChange();
+
+    return {
+        onShow() {
+            populatePersonDropdown();
+            if (!txDate.value) txDate.value = getTodayStr();
+            if (!bulkDate.value) bulkDate.value = getTodayStr();
+            renderBulkTable();
+        }
+    };
+</script>

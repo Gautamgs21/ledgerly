@@ -1,0 +1,239 @@
+<!-- ============================================================
+     PAGE: SETTINGS  (manage members)
+     ============================================================ -->
+<style>
+    .settings-member-list { display: flex; flex-direction: column; gap: 8px; }
+    .settings-member-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        background: var(--card-bg);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+    }
+    .settings-member-item .name { font-weight: 500; font-size: 15px; }
+    .settings-add-form { display: flex; gap: 10px; margin-top: 4px; }
+    .settings-add-form .form-control { flex: 1; }
+    .settings-add-form .btn { width: auto; flex-shrink: 0; padding: 12px 18px; }
+
+    @media (max-width: 480px) {
+        .settings-add-form { flex-direction: column; }
+        .settings-add-form .btn { width: 100%; }
+    }
+</style>
+
+<div class="card">
+    <div class="card-title"><i class="fas fa-user-cog"></i> Manage Members</div>
+
+    <div class="settings-add-form">
+        <input type="text" class="form-control" id="newMemberName" placeholder="Enter name..." maxlength="30">
+        <button class="btn btn-primary btn-sm" id="addMemberBtn"><i class="fas fa-plus"></i> Add</button>
+    </div>
+
+    <div style="margin-top:16px;">
+        <div id="settingsMemberList">
+            <div class="empty-state" style="padding:16px 0;">
+                <p style="font-size:13px;">No members added yet.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<div style="padding:4px 4px 8px;font-size:12px;color:var(--text-muted);text-align:center;">
+    <i class="fas fa-trash-alt"></i> Use Delete to remove a member (transactions are kept)
+</div>
+
+<!-- ===== EDIT MEMBER MODAL ===== -->
+<div id="editMemberModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-icon"><i class="fas fa-user-edit"></i></div>
+        <h2 class="modal-title" style="margin-bottom:16px;">Edit Member</h2>
+
+        <input type="hidden" id="editOldNameInput">
+
+        <div class="form-group" style="text-align:left;">
+            <label>Name</label>
+            <input type="text" class="form-control" id="editNameInput" placeholder="Enter name">
+        </div>
+
+        <div class="form-group" style="text-align:left;">
+            <label>Current PIN <span style="color:var(--danger);">*</span></label>
+            <input type="password" class="form-control" id="editCurrentPinInput" placeholder="Enter current PIN" maxlength="6" inputmode="numeric">
+        </div>
+
+        <div class="form-group" style="text-align:left; margin-bottom:20px;">
+            <label>New PIN <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+            <input type="password" class="form-control" id="editPinInput" placeholder="Leave blank to keep current PIN" maxlength="6" inputmode="numeric">
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" id="cancelEditMemberBtn">Cancel</button>
+            <button class="btn btn-primary" id="saveEditMemberBtn">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const $ = (sel) => root.querySelector(sel);
+    const { escapeHtml, getColorForName } = App.util;
+
+    const settingsMemberList = $('#settingsMemberList');
+    const newMemberName = $('#newMemberName');
+    const addMemberBtn = $('#addMemberBtn');
+    const editModal = $('#editMemberModal');
+
+    // The overlay is position:fixed; move it to <body> so it always covers the
+    // whole screen, whatever the page container does.
+    document.body.appendChild(editModal);
+    // (the helper below keeps lookups working after the move)
+    const $m = (sel) => editModal.querySelector(sel);
+
+    // ============================================================
+    //  RENDER
+    // ============================================================
+    function renderSettingsMembers() {
+        const members = App.state.members;
+        if (members.length === 0) {
+            settingsMemberList.innerHTML = `<div class="empty-state" style="padding:16px 0;"><p style="font-size:13px;">No members added yet.</p></div>`;
+            return;
+        }
+
+        const user = App.state.user;
+        const isAdmin = user && user.privilege === 'admin';
+        const loggedInName = user ? user.name : '';
+
+        let html = '<div class="settings-member-list">';
+        members.forEach(m => {
+            const canEdit = (m === loggedInName) || isAdmin;
+            const disabledAttr = canEdit ? '' : 'disabled style="opacity:0.35; cursor:not-allowed;"';
+
+            html += `
+                <div class="settings-member-item">
+                    <span class="name"><i class="fas fa-user" style="color:${getColorForName(m)};margin-right:8px;"></i>${escapeHtml(m)}</span>
+                    <div style="display:flex;gap:6px;">
+                        <button class="edit-btn btn btn-outline btn-sm" data-name="${escapeHtml(m)}" ${disabledAttr} style="padding:4px 8px;font-size:12px;">
+                            <i class="fas fa-pen"></i> Edit
+                        </button>
+                        <button class="del-btn btn btn-outline btn-sm" data-name="${escapeHtml(m)}" ${disabledAttr} style="padding:4px 8px;font-size:12px;color:var(--danger);border-color:var(--danger);" aria-label="Delete ${escapeHtml(m)}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        settingsMemberList.innerHTML = html;
+
+        // Handlers only on enabled buttons
+        settingsMemberList.querySelectorAll('.edit-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const name = btn.dataset.name;
+                $m('#editOldNameInput').value = name;
+                $m('#editNameInput').value = name;
+                $m('#editCurrentPinInput').value = '';
+                $m('#editPinInput').value = '';
+                editModal.style.display = 'flex';
+            });
+        });
+
+        settingsMemberList.querySelectorAll('.del-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const name = btn.dataset.name;
+                if (name && confirm(`Remove "${name}" from members?`)) deleteMember(name);
+            });
+        });
+    }
+
+    // ============================================================
+    //  CRUD
+    // ============================================================
+    async function addMember(name) {
+        const trimmed = name.trim();
+        if (!trimmed) { App.toast('Please enter a name.', 'error'); return; }
+        if (App.state.members.includes(trimmed)) { App.toast(`"${trimmed}" already exists.`, 'error'); return; }
+        try {
+            const result = await App.api('addMember', trimmed);
+            if (result.success) {
+                App.toast(result.message, 'success');
+                newMemberName.value = '';
+                App.loadDashboard().catch(() => {});
+            } else {
+                App.toast(result.message || 'Failed to add member.', 'error');
+            }
+        } catch (e) {}
+    }
+
+    async function deleteMember(name) {
+        try {
+            const result = await App.api('deleteMember', name);
+            if (result.success) {
+                App.toast(result.message, 'success');
+                App.loadDashboard().catch(() => {});
+            } else {
+                App.toast(result.message || 'Failed to delete member.', 'error');
+            }
+        } catch (e) {}
+    }
+
+    async function saveEditedMember() {
+        const oldName = $m('#editOldNameInput').value;
+        const newName = $m('#editNameInput').value.trim();
+        const currentPin = $m('#editCurrentPinInput').value.trim();
+        const newPin = $m('#editPinInput').value.trim();
+        const requesterName = App.state.user ? App.state.user.name : '';
+
+        if (!newName) { App.toast('Please enter a name.', 'error'); return; }
+        if (!currentPin) { App.toast('Please enter your current PIN.', 'error'); return; }
+
+        const saveBtn = $m('#saveEditMemberBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        try {
+            const result = await App.api('updateMember', { requesterName, oldName, newName, currentPin, newPin });
+            if (result.success) {
+                // Editing your own profile: keep the saved login in sync
+                const user = App.state.user;
+                if (user && user.name.toLowerCase() === oldName.toLowerCase()) {
+                    user.name = newName;
+                    App.auth.saveUser();
+                }
+                editModal.style.display = 'none';
+                App.toast(result.message, 'success');
+                App.loadDashboard().catch(() => {});
+                App.emit('tx-changed');   // transactions were renamed too
+            } else {
+                App.toast(result.message || 'Failed to update member.', 'error');
+            }
+        } catch (e) {
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Save Changes';
+        }
+    }
+
+    // ============================================================
+    //  EVENTS
+    // ============================================================
+    $m('#cancelEditMemberBtn').addEventListener('click', () => { editModal.style.display = 'none'; });
+    $m('#saveEditMemberBtn').addEventListener('click', saveEditedMember);
+    addMemberBtn.addEventListener('click', () => addMember(newMemberName.value));
+    newMemberName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addMember(newMemberName.value); }
+    });
+
+    App.on('members', renderSettingsMembers);
+    App.on('auth', renderSettingsMembers);   // edit/delete rights depend on who is logged in
+
+    // ============================================================
+    //  PAGE LIFECYCLE
+    // ============================================================
+    return {
+        onShow() {
+            renderSettingsMembers();
+            return App.loadMembers().catch(() => {});
+        },
+        onHide() { editModal.style.display = 'none'; }
+    };
+</script>
