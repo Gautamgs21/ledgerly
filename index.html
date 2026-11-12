@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=no">
+    <title>LEDGERLY</title>
+
+    <!-- Main icon for web browsers and Android -->
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Gautamgs21/Chaya-Pattu/bbb498f9caab538f9c16a3a2157896c66e0472ce/web-app-manifest-512x512.png">
+    <!-- Special icon for iPhone & iPad home screen -->
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Gautamgs21/Chaya-Pattu/bbb498f9caab538f9c16a3a2157896c66e0472ce/apple-touch-icon.png">
+    <!-- Makes the page look like a real phone app when saved -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="LEDGERLY">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Aptos+Serif:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+    <!-- ===== SPLASH SCREEN ===== -->
+    <div id="splashScreen">
+        <img src="https://raw.githubusercontent.com/Gautamgs21/Chaya-Pattu/bbb498f9caab538f9c16a3a2157896c66e0472ce/web-app-manifest-512x512.png" alt="Chaya Patt Logo">
+        <div class="progress-container"><div class="progress-bar"></div></div>
+        <p style="font-size: 14px; color: #475569; font-weight: 600;">Loading data...</p>
+    </div>
+
+    <!-- ===== THE COMMON PLATTER (shell) ===== -->
+    <div id="app">
+
+        <!-- TOP BAR (always visible) -->
+        <header class="app-header">
+            <h1><i class="fas fa-mug-hot"></i> LEDGERLY</h1>
+            <div class="header-actions">
+                <button id="refreshBtn" title="Refresh" aria-label="Refresh"><i class="fas fa-sync"></i></button>
+            </div>
+        </header>
+
+        <!-- LOADING SPACE: pages from /pages/*.html are loaded in here -->
+        <main id="pageHost">
+            <div id="pageStatus" class="page-status" hidden></div>
+        </main>
+
+        <!-- BOTTOM BAR (always visible) -->
+        <nav class="bottom-nav">
+            <button class="nav-btn" data-page="dashboard" aria-label="Dashboard">
+                <i class="fas fa-home"></i><span>Home</span>
+            </button>
+            <button class="nav-btn" data-page="new-entry" aria-label="New Transaction">
+                <i class="fas fa-plus-circle"></i><span>New</span>
+            </button>
+            <button class="nav-btn" data-page="history" aria-label="History">
+                <i class="fas fa-clock-rotate-left"></i><span>History</span>
+            </button>
+            <button class="nav-btn" data-page="settings" aria-label="Settings">
+                <i class="fas fa-cog"></i><span>Settings</span>
+            </button>
+        </nav>
+
+        <!-- TOASTS -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <!-- ===== LOGIN MODAL (global, so it sits above every page) ===== -->
+    <div id="pinModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon"><i class="fas fa-lock"></i></div>
+            <h2 class="modal-title">LOGIN</h2>
+            <p class="modal-sub">Select your name and enter your PIN to login</p>
+
+            <div class="form-group" style="text-align:left;">
+                <label>Name</label>
+                <select class="form-control" id="loginNameSelect">
+                    <option value="">Select your name...</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="text-align:left; margin-bottom:20px;">
+                <label>PIN</label>
+                <input type="password" class="form-control" id="loginPinInput" placeholder="Enter PIN" maxlength="6" inputmode="numeric">
+            </div>
+
+            <button class="btn btn-primary" id="loginSubmitBtn">
+                <i class="fas fa-key"></i> Unlock &amp; Register
+            </button>
+        </div>
+    </div>
+
+    <!-- Order matters: config -> core (App, router, utils) -> api -> auth -> start -->
+    <script src="js/config.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>App.start();</script>
+</body>
+</html>
