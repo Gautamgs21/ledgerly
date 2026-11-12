@@ -34,7 +34,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Aptos Serif', serif;
     background: var(--bg);
     color: var(--text-primary);
     line-height: 1.5;
